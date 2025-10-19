@@ -2,8 +2,11 @@ export interface RegistrationRecord {
   userId: string;
   note?: string;
   quantizedVector: number[];
-  commitment: string;
+  commitmentHash: string;
+  commitmentPoint: string;
+  blinding: string;
   nonce: string;
+  nonceHash: string;
   createdAt: string;
 }
 

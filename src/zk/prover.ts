@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-
 const SCALE_FACTOR = 10_000;
+const VECTOR_LENGTH = 16;
 
 function parseNumericList(raw: string): number[] {
   const candidates = raw
@@ -51,45 +50,12 @@ export function quantizeEmbedding(embeddingBase64: string): number[] {
     throw new Error("Embedding payload is empty after parsing");
   }
 
-  return values.map((value) => Math.round(value * SCALE_FACTOR));
-}
+  const scaled = values.map((value) => Math.round(value * SCALE_FACTOR));
 
-export function computeCommitment(vector: number[]): string {
-  if (vector.length === 0) {
-    throw new Error("Vector must not be empty");
+  const trimmed = scaled.slice(0, VECTOR_LENGTH);
+  while (trimmed.length < VECTOR_LENGTH) {
+    trimmed.push(0);
   }
 
-  const digest = createHash("sha256")
-    .update(Buffer.from(vector.join(","), "utf8"))
-    .digest("hex");
-
-  return digest;
-}
-
-export function evaluateAuthentication(
-  referenceVector: number[],
-  candidateVector: number[],
-) {
-  if (referenceVector.length !== candidateVector.length) {
-    throw new Error("Embedding length mismatch between registration and candidate");
-  }
-
-  const squaredDistance = referenceVector.reduce((total, value, index) => {
-    const diff = value - candidateVector[index];
-    return total + diff * diff;
-  }, 0);
-
-  const threshold = referenceVector.length * 2_500_000;
-  const accepted = squaredDistance <= threshold;
-
-  const digest = createHash("sha256")
-    .update(JSON.stringify({ referenceVector, candidateVector }))
-    .digest("hex");
-
-  return {
-    accepted,
-    squaredDistance,
-    threshold,
-    transcriptDigest: digest,
-  };
+  return trimmed;
 }

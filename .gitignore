@@ -1,0 +1,12 @@
+node_modules/
+dist/
+artifacts/
+artifacts/**
+circuits/*.ptau
+circuits/*.r1cs
+circuits/*.wasm
+circuits/*.zkey
+circuits/*.sym
+*.log
+.env
+.env.*
