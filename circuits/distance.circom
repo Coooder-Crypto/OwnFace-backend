@@ -1,7 +1,5 @@
-pragma circom 2.1.8;
-
-include "node_modules/circomlib/circuits/comparators.circom";
-include "node_modules/circomlib/circuits/poseidon.circom";
+include "./vendor/comparators.circom";
+include "./vendor/poseidon.circom";
 
 template DistanceTranscript(n) {
     signal input a[n];

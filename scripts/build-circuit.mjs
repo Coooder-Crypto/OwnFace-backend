@@ -11,7 +11,9 @@ const CIRCUIT_NAME = "distance";
 const ROOT = path.resolve(__dirname, ".." );
 const CIRCUIT_DIR = path.join(ROOT, "circuits");
 const ARTIFACTS_DIR = path.join(ROOT, "artifacts");
-const POT_FILE = path.join(CIRCUIT_DIR, "pot12_final.ptau");
+const POWER_OF_TAU = "18";
+const POT_INITIAL_FILE = path.join(CIRCUIT_DIR, `pot${POWER_OF_TAU}.ptau`);
+const POT_FILE = path.join(CIRCUIT_DIR, `pot${POWER_OF_TAU}_final.ptau`);
 const R1CS = path.join(ARTIFACTS_DIR, `${CIRCUIT_NAME}.r1cs`);
 const WASM_DIR = path.join(ARTIFACTS_DIR, `${CIRCUIT_NAME}_js`);
 const ZKEY = path.join(ARTIFACTS_DIR, `${CIRCUIT_NAME}.zkey`);
@@ -33,10 +35,15 @@ async function ensurePowersOfTau() {
   }
 
   console.log("[circuits] generating powers of tau...");
-  await run("npx", ["snarkjs", "powersoftau", "new", "bn128", "12", POT_FILE, "-v"]);
-  await run("npx", ["snarkjs", "powersoftau", "contribute", POT_FILE, POT_FILE, "--name", "initial", "-v"], {
-    env: { ...process.env, ENTROPY: "ownface" },
-  });
+  await run("npx", ["snarkjs", "powersoftau", "new", "bn128", POWER_OF_TAU, POT_INITIAL_FILE, "-v"]);
+  await run("npx", [
+    "snarkjs",
+    "powersoftau",
+    "prepare",
+    "phase2",
+    POT_INITIAL_FILE,
+    POT_FILE,
+  ]);
 }
 
 async function compileCircuit() {
@@ -45,8 +52,13 @@ async function compileCircuit() {
     "circom",
     path.join(CIRCUIT_DIR, `${CIRCUIT_NAME}.circom`),
     "--r1cs",
+    path.join(ARTIFACTS_DIR, `${CIRCUIT_NAME}.r1cs`),
     "--wasm",
+    path.join(ARTIFACTS_DIR, `${CIRCUIT_NAME}_js`),
     "--sym",
+    path.join(ARTIFACTS_DIR, `${CIRCUIT_NAME}.sym`),
+    "-l",
+    path.join(ROOT, "node_modules"),
     "-o",
     ARTIFACTS_DIR,
   ]);

@@ -13,7 +13,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "circomlibjs": "^0.1.8",
+    "circomlibjs": "^0.1.7",
     "nanoid": "^5.0.7",
     "snarkjs": "^0.7.3",
     "@noble/curves": "^1.4.0",
@@ -24,7 +24,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.10",
-    "circom": "^2.1.6",
+    "circom": "^2.1.8",
     "circomlib": "^2.1.5",
     "eslint": "^9.9.0",
     "eslint-config-prettier": "^9.1.0",
