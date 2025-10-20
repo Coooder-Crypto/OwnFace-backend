@@ -7,6 +7,7 @@ import { db } from "./storage.js";
 import { quantizeEmbedding } from "./zk/prover.js";
 import { pedersenCommit } from "./crypto/pedersen.js";
 import { generateProof, verifyProof } from "./zk/snark.js";
+import { fieldToDecimal, fieldToHex, poseidonHashTranscript, poseidonHashVector } from "./zk/hash.js";
 
 const registerSchema = z.object({
   userId: z.string().trim().min(3).max(128),
@@ -39,6 +40,9 @@ app.post("/register", async (req, res, next) => {
   try {
     const payload = registerSchema.parse(req.body);
     const vector = quantizeEmbedding(payload.embedding);
+    const vectorHash = await poseidonHashVector(vector);
+    const vectorHashDecimal = fieldToDecimal(vectorHash);
+    const vectorHashHex = fieldToHex(vectorHash);
     const { commitmentHash, commitmentPoint, blinding } = pedersenCommit(vector);
     const nonce = randomBytes(16).toString("hex");
     const nonceHash = `0x${Buffer.from(keccak_256(Buffer.from(nonce, "utf8"))).toString("hex")}`;
@@ -47,6 +51,7 @@ app.post("/register", async (req, res, next) => {
       userId: payload.userId,
       note: payload.note,
       quantizedVector: vector,
+      vectorHash: vectorHashDecimal,
       commitmentHash,
       commitmentPoint,
       blinding,
@@ -66,6 +71,8 @@ app.post("/register", async (req, res, next) => {
       blinding: record.blinding,
       vectorLength: record.quantizedVector.length,
       vectorChecksum: createVectorChecksum(record.quantizedVector),
+      vectorHash: vectorHashHex,
+      vectorHashDecimal,
       createdAt: record.createdAt,
     });
   } catch (error) {
@@ -85,6 +92,13 @@ app.post("/authenticate", async (req, res, next) => {
     }
 
     const candidateVector = quantizeEmbedding(payload.embedding);
+    if (!registered.vectorHash) {
+      throw new Error("Registered vector hash not found");
+    }
+    const candidateHash = await poseidonHashVector(candidateVector);
+    const candidateHashDecimal = fieldToDecimal(candidateHash);
+    const candidateHashHex = fieldToHex(candidateHash);
+    const registeredVectorHash = BigInt(registered.vectorHash);
 
     const threshold = registered.quantizedVector.length * 2_500_000;
     const proof = await generateProof({
@@ -98,7 +112,38 @@ app.post("/authenticate", async (req, res, next) => {
       throw new Error("Proof verification failed");
     }
 
-    const [distanceSignal, thresholdSignal, withinSignal] = proof.publicSignals.map((value) => BigInt(value));
+    if (proof.publicSignals.length < 6) {
+      throw new Error("Proof missing expected public signals");
+    }
+
+    const [
+      distanceSignal,
+      thresholdSignal,
+      withinSignal,
+      referenceHashSignal,
+      candidateHashSignal,
+      transcriptHashSignal,
+    ] = proof.publicSignals.map((value) => BigInt(value));
+
+    if (referenceHashSignal !== registeredVectorHash) {
+      throw new Error("Proof reference hash does not match registration record");
+    }
+
+    if (candidateHashSignal !== candidateHash) {
+      throw new Error("Proof candidate hash does not match computed hash");
+    }
+
+    const transcriptHash = await poseidonHashTranscript({
+      referenceHash: referenceHashSignal,
+      candidateHash: candidateHashSignal,
+      threshold: thresholdSignal,
+      distance: distanceSignal,
+    });
+
+    if (transcriptHash !== transcriptHashSignal) {
+      throw new Error("Proof transcript hash mismatch");
+    }
+
     const status = withinSignal === 1n ? "accepted" : "rejected";
 
     const proofRecord = {
@@ -112,6 +157,9 @@ app.post("/authenticate", async (req, res, next) => {
       status,
       distance: Number(distanceSignal),
       threshold: Number(thresholdSignal),
+      referenceHash: fieldToDecimal(referenceHashSignal),
+      candidateHash: candidateHashDecimal,
+      transcriptHash: fieldToDecimal(transcriptHashSignal),
       createdAt: new Date().toISOString(),
     };
 
@@ -126,6 +174,8 @@ app.post("/authenticate", async (req, res, next) => {
       proofRecord.distance,
     );
     const proofHash = hashProofBlob(proof);
+    const referenceHashHex = fieldToHex(referenceHashSignal);
+    const transcriptHashHex = fieldToHex(transcriptHashSignal);
 
     res.json({
       userId: payload.userId,
@@ -133,12 +183,15 @@ app.post("/authenticate", async (req, res, next) => {
       distance: proofRecord.distance,
       threshold: proofRecord.threshold,
       transcriptDigest,
+      transcriptHash: transcriptHashHex,
       commitmentHash,
       commitmentPoint,
       proof: proof.proof,
       publicSignals: proof.publicSignals,
       proofHash,
       withinThreshold: withinSignal === 1n,
+      referenceHash: referenceHashHex,
+      candidateHash: candidateHashHex,
       metadata: {
         proofId: proofRecord.proofId,
         latencyMs: Math.round(elapsed),

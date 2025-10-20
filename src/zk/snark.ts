@@ -2,8 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { groth16 } from "snarkjs";
-
-const SNARK_FIELD = BigInt("21888242871839275222246405745257275088548364400416034343698204186575808495617");
+import { SNARK_FIELD } from "./constants.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,12 +11,12 @@ const WASM_PATH = path.join(ARTIFACTS_DIR, "distance_js", "distance.wasm");
 const ZKEY_PATH = path.join(ARTIFACTS_DIR, "distance.zkey");
 const VKEY_PATH = path.join(ARTIFACTS_DIR, "distance_verification_key.json");
 
-type Groth16Proof = {
+export type Groth16Proof = {
   proof: Record<string, unknown>;
   publicSignals: string[];
 };
 
-interface DistanceProofInput {
+export interface DistanceProofInput {
   reference: number[];
   candidate: number[];
   threshold: number;

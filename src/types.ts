@@ -2,6 +2,7 @@ export interface RegistrationRecord {
   userId: string;
   note?: string;
   quantizedVector: number[];
+  vectorHash: string;
   commitmentHash: string;
   commitmentPoint: string;
   blinding: string;
@@ -16,6 +17,9 @@ export interface ProofRecord {
   status: "accepted" | "rejected";
   distance: number;
   threshold: number;
+  referenceHash: string;
+  candidateHash: string;
+  transcriptHash: string;
   createdAt: string;
 }
 
