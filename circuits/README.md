@@ -23,4 +23,4 @@ npm run circuits:build
 - `distance.zkey`
 - `distance_verification_key.json`
 
-后端在生成证明时会使用上述文件。
+后端在生成 Groth16 证明与验证时会直接读取上述文件；若缺失将导致 `generateProof`/`verifyProof` 报错。
