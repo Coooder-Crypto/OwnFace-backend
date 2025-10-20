@@ -35,7 +35,7 @@ async function ensurePowersOfTau() {
   console.log("[circuits] generating powers of tau...");
   await run("npx", ["snarkjs", "powersoftau", "new", "bn128", "12", POT_FILE, "-v"]);
   await run("npx", ["snarkjs", "powersoftau", "contribute", POT_FILE, POT_FILE, "--name", "initial", "-v"], {
-    env: { ...process.env, ENTROPY: "biozero" },
+    env: { ...process.env, ENTROPY: "ownface" },
   });
 }
 

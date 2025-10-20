@@ -5,7 +5,7 @@
 ## 构建步骤
 
 ```bash
-cd biozero-backend
+cd ownface-backend
 npm install
 npm run circuits:build
 ```

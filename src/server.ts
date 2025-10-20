@@ -180,7 +180,7 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 const PORT = Number(process.env.PORT ?? 4000);
 
 app.listen(PORT, () => {
-  console.log(`[biozero-backend] listening on http://localhost:${PORT}`);
+  console.log(`[ownface-backend] listening on http://localhost:${PORT}`);
 });
 
 function createVectorChecksum(vector: number[]): string {
