@@ -4,9 +4,7 @@ import { bn254 } from "@noble/curves/bn254";
 
 const ORDER = bn254.CURVE.n;
 const G = bn254.G1.ProjectivePoint.BASE;
-const H = bn254.G1.ProjectivePoint.fromPrivateKey(
-  bn254.utils.hashToPrivateScalar("biozero-pedersen-h"),
-);
+const H = bn254.G1.ProjectivePoint.hashToCurve("biozero-pedersen-h");
 
 function modScalar(value: bigint): bigint {
   const result = value % ORDER;

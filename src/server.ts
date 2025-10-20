@@ -7,6 +7,7 @@ import { db } from "./storage.js";
 import { quantizeEmbedding } from "./zk/prover.js";
 import { pedersenCommit } from "./crypto/pedersen.js";
 import { generateProof, verifyProof } from "./zk/snark.js";
+import { getRegistryClient } from "./blockchain/registry.js";
 
 const registerSchema = z.object({
   userId: z.string().trim().min(3).max(128),
@@ -35,13 +36,13 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });
 });
 
-app.post("/register", (req, res, next) => {
+app.post("/register", async (req, res, next) => {
   try {
     const payload = registerSchema.parse(req.body);
     const vector = quantizeEmbedding(payload.embedding);
     const { commitmentHash, commitmentPoint, blinding } = pedersenCommit(vector);
     const nonce = randomBytes(16).toString("hex");
-    const nonceHash = createHash("sha256").update(nonce).digest("hex");
+    const nonceHash = `0x${Buffer.from(keccak_256(Buffer.from(nonce, "utf8"))).toString("hex")}`;
 
     const record = {
       userId: payload.userId,
@@ -51,11 +52,26 @@ app.post("/register", (req, res, next) => {
       commitmentPoint,
       blinding,
       nonce,
-      nonceHash: `0x${nonceHash}`,
+      nonceHash,
       createdAt: new Date().toISOString(),
     };
 
     db.upsertRegistration(record);
+
+    const registry = getRegistryClient();
+    if (registry) {
+      try {
+        await registry.register({
+          userId: payload.userId,
+          commitmentHash,
+          commitmentPoint,
+          blinding,
+          nonceHash: record.nonceHash,
+        });
+      } catch (chainError) {
+        console.error("[registry] register failed", chainError);
+      }
+    }
 
     res.json({
       userId: record.userId,
@@ -73,7 +89,7 @@ app.post("/register", (req, res, next) => {
   }
 });
 
-app.post("/authenticate", (req, res, next) => {
+app.post("/authenticate", async (req, res, next) => {
   const started = performance.now();
   try {
     const payload = authenticateSchema.parse(req.body);
@@ -125,6 +141,23 @@ app.post("/authenticate", (req, res, next) => {
       threshold,
       proofRecord.distance,
     );
+    const proofHash = hashProofBlob(proof);
+
+    const registry = getRegistryClient();
+    if (registry) {
+      try {
+        await registry.authenticate({
+          userId: payload.userId,
+          accepted: proofRecord.status === "accepted",
+          distance: proofRecord.distance,
+          threshold: proofRecord.threshold,
+          transcriptDigest,
+          proofHash,
+        });
+      } catch (chainError) {
+        console.error("[registry] authenticate failed", chainError);
+      }
+    }
 
     res.json({
       userId: payload.userId,
@@ -136,6 +169,7 @@ app.post("/authenticate", (req, res, next) => {
       commitmentPoint,
       proof: proof.proof,
       publicSignals: proof.publicSignals,
+      proofHash,
       withinThreshold: withinSignal === 1n,
       metadata: {
         proofId: proofRecord.proofId,
@@ -198,6 +232,11 @@ function createProofIdentifier(payload: {
     .update(JSON.stringify(payload))
     .digest("hex")
     .slice(0, 32);
+}
+
+function hashProofBlob(proof: { proof: unknown; publicSignals: string[] }): string {
+  const payload = JSON.stringify(proof);
+  return `0x${Buffer.from(keccak_256(Buffer.from(payload, "utf8"))).toString("hex")}`;
 }
 
 function createTranscriptDigest(
