@@ -7,7 +7,6 @@ import { db } from "./storage.js";
 import { quantizeEmbedding } from "./zk/prover.js";
 import { pedersenCommit } from "./crypto/pedersen.js";
 import { generateProof, verifyProof } from "./zk/snark.js";
-import { getRegistryClient } from "./blockchain/registry.js";
 
 const registerSchema = z.object({
   userId: z.string().trim().min(3).max(128),
@@ -57,21 +56,6 @@ app.post("/register", async (req, res, next) => {
     };
 
     db.upsertRegistration(record);
-
-    const registry = getRegistryClient();
-    if (registry) {
-      try {
-        await registry.register({
-          userId: payload.userId,
-          commitmentHash,
-          commitmentPoint,
-          blinding,
-          nonceHash: record.nonceHash,
-        });
-      } catch (chainError) {
-        console.error("[registry] register failed", chainError);
-      }
-    }
 
     res.json({
       userId: record.userId,
@@ -142,22 +126,6 @@ app.post("/authenticate", async (req, res, next) => {
       proofRecord.distance,
     );
     const proofHash = hashProofBlob(proof);
-
-    const registry = getRegistryClient();
-    if (registry) {
-      try {
-        await registry.authenticate({
-          userId: payload.userId,
-          accepted: proofRecord.status === "accepted",
-          distance: proofRecord.distance,
-          threshold: proofRecord.threshold,
-          transcriptDigest,
-          proofHash,
-        });
-      } catch (chainError) {
-        console.error("[registry] authenticate failed", chainError);
-      }
-    }
 
     res.json({
       userId: payload.userId,
